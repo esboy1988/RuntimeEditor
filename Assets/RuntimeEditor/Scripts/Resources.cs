@@ -7,7 +7,6 @@ namespace UnityEngine.RuntimeEditor
 {
     public class Resources : MonoBehaviour
     {
-
         public HierarchyGraphics resourcesGraphicsDefault;
         public HierarchyGraphics resourcesGraphicsSelected;
         public GameObject resourcesEntryPrefab;
@@ -72,7 +71,8 @@ namespace UnityEngine.RuntimeEditor
 
         public void CompleteResourcesSetup()
         {
-            Debug.LogError("Completed Resources Generation");
+            Debug.Log("Completed Resources Generation");
+            //Do Stuff
         }
     }
 }

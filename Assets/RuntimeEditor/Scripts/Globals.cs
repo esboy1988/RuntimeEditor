@@ -105,6 +105,12 @@ namespace UnityEngine.RuntimeEditor
         public List<RuntimeEditor.Component> components = new List<RuntimeEditor.Component>();
         public RectTransform scrollRect;
         public RectTransform contentWindow;
+        public RectTransform titleBar;
+        public InputField selectedObjectName;
+        public Toggle enabledToggle;
+        public Toggle staticToggle;
+        public Dropdown tagDropdown;
+        public Dropdown layerDropdown;
         public RectTransform footer;
     }
 

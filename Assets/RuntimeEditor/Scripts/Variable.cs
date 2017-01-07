@@ -13,9 +13,9 @@ namespace UnityEngine.RuntimeEditor
         public VariableGraphics variableGraphicsSelected;
         public AssetGraphics assetGraphics;
         public VariableReferences variableReferences;
+        public VariableType variableType; //Only set manually when not instantiated
 
         //Automatic
-        VariableType variableType;
         AssetType assetType;
         bool isInteger = false;
         bool isEditable = true;
@@ -536,10 +536,12 @@ namespace UnityEngine.RuntimeEditor
             }
         }
 
+        //Called by Event Trigger when variable is selected
         public void OnSelect(int fieldIndex)
         {
-            variableReferences.variableName.color = variableGraphicsSelected.textColor;
-            switch (variableType)
+            if(variableReferences.variableName) //If there is a name field
+                variableReferences.variableName.color = variableGraphicsSelected.textColor; //Set to selected text color
+            switch (variableType) //Process depends on variable type
             {
                 case VariableType.InputField:
                     variableReferences.inputField.image.sprite = variableGraphicsSelected.inputField;
@@ -635,9 +637,11 @@ namespace UnityEngine.RuntimeEditor
             }
         }
 
+        //Called by Event Trigger when variable is deselected
         public void OnDeselect(int fieldIndex)
         {
-            variableReferences.variableName.color = variableGraphicsDefault.textColor;
+            if (variableReferences.variableName) //If there is a name field
+                variableReferences.variableName.color = variableGraphicsDefault.textColor; //Set to default text color
             switch (variableType)
             {
                 case VariableType.InputField:
