@@ -15,7 +15,7 @@ namespace UnityEngine.RuntimeEditor
         public HierarchyGraphics hierarchyGraphicsDefault; //Unselected graphics data structure
         public HierarchyGraphics hierarchyGraphicsSelected; //Selected graphics data structure
         public float indentSize = 14f; //Size for each level of indent in pixels
-        
+
         //Automatic
         public List<Scene> scenes = new List<Scene>();
         public List<HierarchyEntry> entries = new List<HierarchyEntry>(); //List all of generated entries
@@ -60,14 +60,14 @@ namespace UnityEngine.RuntimeEditor
                 entry.hierarchyReferences.label.text = spawn.name; //Set label text
                 entry.hierarchyReferences.contentRect.anchoredPosition = new Vector2(indentLevel * indentSize, 0); //Apply indent
                 currentSpawnPosition -= entryHeight; //Calulcate position for next entry spawn
-                CrawlSceneHierarchy(indentLevel); //Crawl scene hierarchy
+                CrawlSceneHierarchy(indentLevel, entry); //Crawl scene hierarchy
             }
             else //Finished crawling scenes
                 Debug.Log("Completed Hierarchy Generation");
         }
-        
+
         //Crawl root objects of scene
-        void CrawlSceneHierarchy(float indentLevel)
+        void CrawlSceneHierarchy(float indentLevel, HierarchyEntry scene)
         {
             indentLevel++; //Add indent level
             GameObject[] objectsFound = scenes[currentSceneIndex].GetRootGameObjects(); //Get all root objects of scene
@@ -78,14 +78,17 @@ namespace UnityEngine.RuntimeEditor
                     GameObject spawn = Instantiate(hierarchyEntryPrefab, contentRect.transform, false) as GameObject; //Spawn a hierarchy entry
                     spawn.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, currentSpawnPosition); //Set entries position
                     spawn.name = go.name; //Set object name
+                    spawn.transform.SetParent(scene.transform); //Parent
                     HierarchyEntry entry = spawn.GetComponent<HierarchyEntry>(); //Get reference to HierarchyEntry.cs
+                    entry.isCollapsed = true; //Mark as collapsed
+                    entry.parent = scene; //Set parent
                     entries.Add(entry); //Add to entry list to track
+                    scene.children.Add(entry); //Add to parents child list
                     entry.hierarchyReferences.label.text = spawn.name; //Set label text
                     entry.hierarchyReferences.contentRect.anchoredPosition = new Vector2(indentLevel * indentSize, 0); //Apply indent
                     if (go.transform.childCount == 0) //If object has no children
                     {
-                        //Set expand properties here
-                        //entry.isCollapsed = true; //Set as collapsed
+                        entry.isCollapsed = false; //No children means cant be collapsed
                         entry.hierarchyReferences.expand.image.enabled = false; //Set expanded button to false
                     }
                     entry.hierarchyReferences.button.onClick.RemoveAllListeners(); //Reset button listener
@@ -105,30 +108,34 @@ namespace UnityEngine.RuntimeEditor
             indentLevel++; //Add indent level
             int childCount = inputGameObject.transform.childCount; //Get child count
             GameObject[] childrenFound = new GameObject[childCount]; //Create an array for children
-            for(int i = 0; i < childCount; i++) //Iterate children
+            for (int i = 0; i < childCount; i++) //Iterate children
             {
                 childrenFound[i] = inputGameObject.transform.GetChild(i).gameObject; //Get references to children
             }
-            foreach(GameObject child in childrenFound) //Iterate array of children
+            foreach (GameObject child in childrenFound) //Iterate array of children
             {
-                GameObject spawn = Instantiate(hierarchyEntryPrefab, contentRect.transform, false) as GameObject; //Spawn a hierarchy entry
-                spawn.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, currentSpawnPosition); //Set entries position
+                GameObject spawn = Instantiate(hierarchyEntryPrefab, parent.transform, false) as GameObject; //Spawn a hierarchy entry
+                //spawn.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, currentSpawnPosition); //Set entries position
                 spawn.name = child.name; //Set object name
                 HierarchyEntry entry = spawn.GetComponent<HierarchyEntry>(); //Get reference to HierarchyEntry.cs
+                spawn.SetActive(false); //Disable 
+                entry.isCollapsed = true; //Mark as collapsed
+                entry.isHidden = true; //Mark as hidden
+                entry.parent = parent; //Set parent
                 entries.Add(entry); //Add to entry list to track
                 parent.children.Add(entry); //Add to parents child list
                 entry.hierarchyReferences.label.text = spawn.name; //Set label text
                 entry.hierarchyReferences.contentRect.anchoredPosition = new Vector2(indentLevel * indentSize, 0); //Apply indent
                 if (child.transform.childCount == 0) //If object has no children
                 {
-                    //entry.isCollapsed = true; //Set as collapsed
+                    entry.isCollapsed = false; //No children means cant be collapsed
                     entry.hierarchyReferences.expand.image.enabled = false; //Set expanded button to false
                 }
                 entry.hierarchyReferences.button.onClick.RemoveAllListeners(); //Reset object button listener
                 entry.hierarchyReferences.button.onClick.AddListener(delegate { this.SelectHierarchyEntry(child, entry); }); //Set object button listener
                 entry.hierarchyReferences.expand.onClick.RemoveAllListeners(); //Reset expand button listener
                 entry.hierarchyReferences.expand.onClick.AddListener(delegate { this.ExpandCollapseHierarchy(entry); }); //Set expand button listener
-                currentSpawnPosition -= entryHeight; //Calulcate position for next entry spawn
+                //currentSpawnPosition -= entryHeight; //Calulcate position for next entry spawn
                 CrawlObject(indentLevel, child, entry); //Crawl this entries children
             }
         }
@@ -144,94 +151,99 @@ namespace UnityEngine.RuntimeEditor
         public void ExpandCollapseHierarchy(HierarchyEntry inputEntry)
         {
             inputEntry.isCollapsed = !inputEntry.isCollapsed; //Flip collapsed state
-            int index = 0; //Integer for tracking collapsed item
-            for(int i = 0; i < entries.Count; i++) //Iterate entries to find collapsed
-            {
-                if (entries[i] == inputEntry) //If matches
-                {
-                    index = i+1; //Set to integer of first to collapse
-                    break; //Stop iterating
-                }
-            }
             if (inputEntry.isCollapsed) //If collapsing
             {
-                int count = 0; //Integer for tracking how many items to collapse
-                for (int i = 0; i < inputEntry.children.Count; i++) //Iterate collapsed items recursive children
-                {
-                    count += CollapsingRecursiveChildCount(inputEntry.children[i]); //Get child count
-                }
-                int range = index + count; //Range to iterate needs to be altered when already hidden items are found
-                for (int i = index; i < range; i++) //Iterate entry list
-                {
-                    if (!entries[i].isHidden) //If not already hidden by its recursive parent
-                    {
-                        entries[i].isHidden = true; //Set hidden to check against
-                        entries[i].gameObject.SetActive(false); //Set game object disabled
-                    }
-                    else //Otherwise
-                        range++; //Dont count it
-                }
-                for (int i = index + count; i < entries.Count; i++) //Iterate all items after collapsing area
-                {
-                    RectTransform rect = entries[i].GetComponent<RectTransform>(); //Get entries rect
-                    rect.anchoredPosition = new Vector2(0, rect.anchoredPosition.y + entryHeight * count); //Move up by amount of items collapsed
-                }
+                int expandedItemCount = CollapseRecursiveDown(inputEntry); //Search down children recursively to find what to enable and get nudge count
+                CollapseRecursiveUp(inputEntry, expandedItemCount); //Search up hierarchy for which items come after this that need to be nudged
             }
             else if (!inputEntry.isCollapsed) //If expanding
             {
-                int count = 0; //Integer for tracking how many items to collapse
-                for (int i = 0; i < inputEntry.children.Count; i++) //Iterate collapsed items recursive children
-                {
-                    count += ExpandingRecursiveChildCount(inputEntry.children[i]); //Get child count
-                }
-                int range = index + count; //Range to iterate needs to be altered when already hidden items are found
-                for (int i = index; i < range; i++) //Iterate entry list
-                {
-                    if (entries[i].isHidden) //If not already hidden by its recursive parent
-                    {
-                        entries[i].isHidden = false; //Set hidden to check against
-                        entries[i].gameObject.SetActive(true); //Set game object disabled
-                    }
-                    else //Otherwise
-                        range++; //Dont count it
-                }
-                for (int i = index + count; i < entries.Count; i++) //Iterate all items after collapsing area
-                {
-                    RectTransform rect = entries[i].GetComponent<RectTransform>(); //Get entries rect
-                    rect.anchoredPosition = new Vector2(0, rect.anchoredPosition.y - entryHeight * count); //Move up by amount of items collapsed
-                }
+                int expandedItemCount = ExpandRecursiveDown(inputEntry); //Search down children recursively to find what to disable and get nudge count
+                ExpandRecursiveUp(inputEntry, expandedItemCount); //Search up hierarchy for which items come after this that need to be nudged
             }
         }
 
-        //Used to recursive search of child count for collapsing
-        public int CollapsingRecursiveChildCount(HierarchyEntry inputEntry)
+        //Called when collapsing, go down hierarchy from selected to collapse items and calculate hierarchy nudge count
+        public int CollapseRecursiveDown(HierarchyEntry inputEntry)
         {
             int count = 0; //Integer for tracking children found
-            if (!inputEntry.isHidden) //If not collapsed
+            for (int i = 0; i < inputEntry.children.Count; i++) //Iterate children
             {
-                count = 1; //Set to one before searching children
-                for (int i = 0; i < inputEntry.children.Count; i++) //Iterate children
-                {
-                    int c = CollapsingRecursiveChildCount(inputEntry.children[i]);
-                    count += c; //Search for its children
-                }
+                inputEntry.children[i].isHidden = true; //Set hidden to check against
+                inputEntry.children[i].gameObject.SetActive(false); //Set game object disabled
+                inputEntry.children[i].GetComponent<RectTransform>().anchoredPosition = Vector2.zero; //Set position
+                count++; //Add to collapsed item count;
+                if (!inputEntry.children[i].isCollapsed) //If not collapsed keep going down hierarchy
+                    count += CollapseRecursiveDown(inputEntry.children[i]); //Expand down hierarchy
             }
             return count; //Return
         }
 
-        //Used to recursive search of child count for expanding
-        public int ExpandingRecursiveChildCount(HierarchyEntry inputEntry)
+        //Called when expanding, go down hierarchy from selected to expand items and calculate hierarchy nudge count
+        public int ExpandRecursiveDown(HierarchyEntry inputEntry)
         {
-            int count = 1; //Integer for tracking children found
-            if (!inputEntry.isCollapsed) //If not collapsed
+            int count = 0; //Integer for tracking children found
+            for (int i = 0; i < inputEntry.children.Count; i++) //Iterate children
             {
-                for (int i = 0; i < inputEntry.children.Count; i++) //Iterate children
+                inputEntry.children[i].isHidden = false; //Set hidden to check against
+                inputEntry.children[i].gameObject.SetActive(true); //Set game object disabled
+                inputEntry.children[i].GetComponent<RectTransform>().anchoredPosition = new Vector2(0, -((1+count) * entryHeight)); //Set position
+                count++; //Add to expanded item count;
+                if (!inputEntry.children[i].isCollapsed) //If not collapsed keep going down hierarchy
                 {
-                    int c = ExpandingRecursiveChildCount(inputEntry.children[i]);
-                    count += c; //Search for its children
+                    count += ExpandRecursiveDown(inputEntry.children[i]); //Expand down
                 }
+                
             }
             return count; //Return
+        }
+
+        //Called when collapsing, go up hierarchy from selected to find objects that need to be nudged
+        public void CollapseRecursiveUp(HierarchyEntry inputEntry, int nudgeCount)
+        {
+            if (inputEntry.parent) //Check not top of hierarchy
+            {
+                bool isSelected = false; //Flipped when expanded item is found
+                for (int i = 0; i < inputEntry.parent.children.Count; i++) //Iterate siblings
+                {
+                    if (inputEntry.parent.children[i] == inputEntry) //If currently expanded item
+                    {
+                        isSelected = true; //Found expanded item
+                        continue;
+                    }
+                    else if (isSelected) //Following items
+                    {
+                        RectTransform rect = inputEntry.parent.children[i].GetComponent<RectTransform>(); //Get reference to rect transfrom
+                        Vector2 oldPos = rect.anchoredPosition; //get current position
+                        rect.anchoredPosition = new Vector2(0, oldPos.y + nudgeCount * entryHeight); //set nudged position
+                    }
+                }
+                CollapseRecursiveUp(inputEntry.parent, nudgeCount); //Continue up hierarchy
+            }
+        }
+
+        //Called when expanding, go up hierarchy from selected to find objects that need to be nudged
+        public void ExpandRecursiveUp(HierarchyEntry inputEntry, int nudgeCount)
+        {
+            if (inputEntry.parent) //Check not top of hierarchy
+            {
+                bool isSelected = false; //Flipped when expanded item is found
+                for (int i = 0; i < inputEntry.parent.children.Count; i++) //Iterate siblings
+                {
+                    if (inputEntry.parent.children[i] == inputEntry) //If currently expanded item
+                    {
+                        isSelected = true; //Found expanded item
+                        continue;
+                    }
+                    else if (isSelected) //Following items
+                    {
+                        RectTransform rect = inputEntry.parent.children[i].GetComponent<RectTransform>(); //Get reference to rect transfrom
+                        Vector2 oldPos = rect.anchoredPosition; //get current position
+                        rect.anchoredPosition = new Vector2(0, oldPos.y - nudgeCount * entryHeight); //set nudged position
+                    }
+                }
+                ExpandRecursiveUp(inputEntry.parent, nudgeCount); //Continue up hierarchy
+            }
         }
 
         //Selects GameObject for this entry (called by Listener on Button)

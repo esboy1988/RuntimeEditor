@@ -8,6 +8,7 @@ namespace UnityEngine.RuntimeEditor
     public class HierarchyEntry : MonoBehaviour
     {
         public HierarchyEntryReferences hierarchyReferences;
+        public HierarchyEntry parent;
         public List<HierarchyEntry> children = new List<HierarchyEntry>();
         public bool isCollapsed = false;
         public bool isHidden = false;
