@@ -115,6 +115,21 @@ namespace UnityEngine.RuntimeEditor
     }
 
     [System.Serializable]
+    public class HierarchyEntryReferences
+    {
+        public RectTransform contentRect;
+        public Text label;
+        public Button button;
+        public Button expand;
+    }
+
+    [System.Serializable]
+    public class HierarchyEntryGraphics
+    {
+
+    }
+
+    [System.Serializable]
     public class ComponentReferences
     {
         public Text componentLabel;

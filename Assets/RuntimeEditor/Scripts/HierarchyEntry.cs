@@ -7,15 +7,9 @@ namespace UnityEngine.RuntimeEditor
 {
     public class HierarchyEntry : MonoBehaviour
     {
-        public HierarchyReferences hierarchyReferences;
-    }
-
-    [System.Serializable]
-    public class HierarchyReferences
-    {
-        public RectTransform contentRect;
-        public Text label;
-        public Button button;
-        public Image expand;
+        public HierarchyEntryReferences hierarchyReferences;
+        public List<HierarchyEntry> children = new List<HierarchyEntry>();
+        public bool isCollapsed = false;
+        public bool isHidden = false;
     }
 }

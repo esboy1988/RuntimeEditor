@@ -85,19 +85,22 @@ namespace UnityEngine.RuntimeEditor
                     if (go.transform.childCount == 0) //If object has no children
                     {
                         //Set expand properties here
-                        entry.hierarchyReferences.expand.enabled = false; //Set expanded image to false
+                        //entry.isCollapsed = true; //Set as collapsed
+                        entry.hierarchyReferences.expand.image.enabled = false; //Set expanded button to false
                     }
                     entry.hierarchyReferences.button.onClick.RemoveAllListeners(); //Reset button listener
-                    entry.hierarchyReferences.button.onClick.AddListener(delegate { SelectHierarchyEntry(go, entry.hierarchyReferences.button.image); }); //Set button listener
+                    entry.hierarchyReferences.button.onClick.AddListener(delegate { SelectHierarchyEntry(go, entry); }); //Set button listener
+                    entry.hierarchyReferences.expand.onClick.RemoveAllListeners(); //Reset expand button listener
+                    entry.hierarchyReferences.expand.onClick.AddListener(delegate { this.ExpandCollapseHierarchy(entry); }); //Set expand button listener
                     currentSpawnPosition -= entryHeight; //Calulcate position for next entry spawn
-                    CrawlObject(indentLevel, go); //Crawl this entries children
+                    CrawlObject(indentLevel, go, entry); //Crawl this entries children
                 }
             }
             CompleteSceneHierarchy(); //Finished with this scenes Hierarchy
         }
 
         //Crawl an objects children
-        void CrawlObject(float indentLevel, GameObject inputGameObject)
+        void CrawlObject(float indentLevel, GameObject inputGameObject, HierarchyEntry parent)
         {
             indentLevel++; //Add indent level
             int childCount = inputGameObject.transform.childCount; //Get child count
@@ -113,17 +116,20 @@ namespace UnityEngine.RuntimeEditor
                 spawn.name = child.name; //Set object name
                 HierarchyEntry entry = spawn.GetComponent<HierarchyEntry>(); //Get reference to HierarchyEntry.cs
                 entries.Add(entry); //Add to entry list to track
+                parent.children.Add(entry); //Add to parents child list
                 entry.hierarchyReferences.label.text = spawn.name; //Set label text
                 entry.hierarchyReferences.contentRect.anchoredPosition = new Vector2(indentLevel * indentSize, 0); //Apply indent
                 if (child.transform.childCount == 0) //If object has no children
                 {
-                    //Set expand properties here
-                    entry.hierarchyReferences.expand.enabled = false; //Set expanded image to false
+                    //entry.isCollapsed = true; //Set as collapsed
+                    entry.hierarchyReferences.expand.image.enabled = false; //Set expanded button to false
                 }
-                entry.hierarchyReferences.button.onClick.RemoveAllListeners(); //Reset button listener
-                entry.hierarchyReferences.button.onClick.AddListener(delegate { this.SelectHierarchyEntry(child, entry.hierarchyReferences.button.image); }); //Set button listener
+                entry.hierarchyReferences.button.onClick.RemoveAllListeners(); //Reset object button listener
+                entry.hierarchyReferences.button.onClick.AddListener(delegate { this.SelectHierarchyEntry(child, entry); }); //Set object button listener
+                entry.hierarchyReferences.expand.onClick.RemoveAllListeners(); //Reset expand button listener
+                entry.hierarchyReferences.expand.onClick.AddListener(delegate { this.ExpandCollapseHierarchy(entry); }); //Set expand button listener
                 currentSpawnPosition -= entryHeight; //Calulcate position for next entry spawn
-                CrawlObject(indentLevel, child); //Crawl this entries children
+                CrawlObject(indentLevel, child, entry); //Crawl this entries children
             }
         }
 
@@ -134,20 +140,112 @@ namespace UnityEngine.RuntimeEditor
             GetNextScene(); //Work on next scene
         }
 
-        //Selects GameObject for this entry (called by Listener on Button)
-        public void SelectHierarchyEntry(GameObject input, Image entryImage)
+        //Expands or collapses hierarchy from entry
+        public void ExpandCollapseHierarchy(HierarchyEntry inputEntry)
         {
-            int hierarchyChildCount = contentRect.transform.childCount; //Get count of all hierarchy items
-            for (int i = 0; i < hierarchyChildCount; i++) //Iterate hierarchy items
+            inputEntry.isCollapsed = !inputEntry.isCollapsed; //Flip collapsed state
+            int index = 0; //Integer for tracking collapsed item
+            for(int i = 0; i < entries.Count; i++) //Iterate entries to find collapsed
             {
-                HierarchyEntry entry = contentRect.GetChild(i).GetComponent<HierarchyEntry>(); //Get reference to HierarchyEntry.cs
-                entry.hierarchyReferences.button.image.color = hierarchyGraphicsDefault.entryColor; //Reset button color to default
+                if (entries[i] == inputEntry) //If matches
+                {
+                    index = i+1; //Set to integer of first to collapse
+                    break; //Stop iterating
+                }
             }
-            entryImage.color = hierarchyGraphicsSelected.entryColor; //Set this buttons color to selected
+            if (inputEntry.isCollapsed) //If collapsing
+            {
+                int count = 0; //Integer for tracking how many items to collapse
+                for (int i = 0; i < inputEntry.children.Count; i++) //Iterate collapsed items recursive children
+                {
+                    count += CollapsingRecursiveChildCount(inputEntry.children[i]); //Get child count
+                }
+                int range = index + count; //Range to iterate needs to be altered when already hidden items are found
+                for (int i = index; i < range; i++) //Iterate entry list
+                {
+                    if (!entries[i].isHidden) //If not already hidden by its recursive parent
+                    {
+                        entries[i].isHidden = true; //Set hidden to check against
+                        entries[i].gameObject.SetActive(false); //Set game object disabled
+                    }
+                    else //Otherwise
+                        range++; //Dont count it
+                }
+                for (int i = index + count; i < entries.Count; i++) //Iterate all items after collapsing area
+                {
+                    RectTransform rect = entries[i].GetComponent<RectTransform>(); //Get entries rect
+                    rect.anchoredPosition = new Vector2(0, rect.anchoredPosition.y + entryHeight * count); //Move up by amount of items collapsed
+                }
+            }
+            else if (!inputEntry.isCollapsed) //If expanding
+            {
+                int count = 0; //Integer for tracking how many items to collapse
+                for (int i = 0; i < inputEntry.children.Count; i++) //Iterate collapsed items recursive children
+                {
+                    count += ExpandingRecursiveChildCount(inputEntry.children[i]); //Get child count
+                }
+                int range = index + count; //Range to iterate needs to be altered when already hidden items are found
+                for (int i = index; i < range; i++) //Iterate entry list
+                {
+                    if (entries[i].isHidden) //If not already hidden by its recursive parent
+                    {
+                        entries[i].isHidden = false; //Set hidden to check against
+                        entries[i].gameObject.SetActive(true); //Set game object disabled
+                    }
+                    else //Otherwise
+                        range++; //Dont count it
+                }
+                for (int i = index + count; i < entries.Count; i++) //Iterate all items after collapsing area
+                {
+                    RectTransform rect = entries[i].GetComponent<RectTransform>(); //Get entries rect
+                    rect.anchoredPosition = new Vector2(0, rect.anchoredPosition.y - entryHeight * count); //Move up by amount of items collapsed
+                }
+            }
+        }
+
+        //Used to recursive search of child count for collapsing
+        public int CollapsingRecursiveChildCount(HierarchyEntry inputEntry)
+        {
+            int count = 0; //Integer for tracking children found
+            if (!inputEntry.isHidden) //If not collapsed
+            {
+                count = 1; //Set to one before searching children
+                for (int i = 0; i < inputEntry.children.Count; i++) //Iterate children
+                {
+                    int c = CollapsingRecursiveChildCount(inputEntry.children[i]);
+                    count += c; //Search for its children
+                }
+            }
+            return count; //Return
+        }
+
+        //Used to recursive search of child count for expanding
+        public int ExpandingRecursiveChildCount(HierarchyEntry inputEntry)
+        {
+            int count = 1; //Integer for tracking children found
+            if (!inputEntry.isCollapsed) //If not collapsed
+            {
+                for (int i = 0; i < inputEntry.children.Count; i++) //Iterate children
+                {
+                    int c = ExpandingRecursiveChildCount(inputEntry.children[i]);
+                    count += c; //Search for its children
+                }
+            }
+            return count; //Return
+        }
+
+        //Selects GameObject for this entry (called by Listener on Button)
+        public void SelectHierarchyEntry(GameObject inputObject, HierarchyEntry inputEntry)
+        {
+            for (int i = 0; i < entries.Count; i++) //Iterate hierarchy items
+            {
+                entries[i].hierarchyReferences.button.image.color = hierarchyGraphicsDefault.entryColor; //Reset button color to default
+            }
+            inputEntry.hierarchyReferences.button.image.color = hierarchyGraphicsSelected.entryColor; //Set this buttons color to selected
             if (inspector != null) //If reference to Inspector exists
             {
-                Debug.Log("Set Inspector to GameObject: " + input.ToString());
-                inspector.ChangeInspectorContext(input); //Change context on Inspector.cs to match this selected gameobject
+                Debug.Log("Set Inspector to GameObject: " + inputObject.ToString());
+                inspector.ChangeInspectorContext(inputObject); //Change context on Inspector.cs to match this selected gameobject
             }
         }
     }
