@@ -124,9 +124,18 @@ namespace UnityEngine.RuntimeEditor
     }
 
     [System.Serializable]
-    public class HierarchyEntryGraphics
+    public class HierarchyGraphics
     {
+        public Sprite expandIcon;
+        public Color entryColor;
+        public Color textColor;
+    }
 
+    public enum HierarchySearchType
+    {
+        Search,
+        Expand,
+        Collapse
     }
 
     [System.Serializable]
